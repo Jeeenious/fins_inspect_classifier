@@ -1,7 +1,8 @@
 names:
 - led
+- twist
 - gauge
 - digital
-nc: 3
+nc: 4
 train: ../train/images
 val: ../valid/images

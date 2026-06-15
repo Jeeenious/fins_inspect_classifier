@@ -6,7 +6,8 @@ MeterClassifier 节点：YOLOv8 ONNX → 固定槽位输出裁剪图。
 
 | 类别 | 槽位数 | 端口名 | 排序 |
 |------|--------|--------|------|
-| LED 指示灯 | 8 | `light_0` .. `light_7` | 从上到下、从左到右 |
+| 按钮灯 | 4 | `light_0` .. `light_3` | 从上到下、从左到右 |
+| 旋钮 | 4 | `twist_0` .. `twist_3` | 从上到下、从左到右 |
 | 指针表 | 4 | `gauge_0` .. `gauge_3` | 从上到下、从左到右 |
 | 数显 | 4 | `digital_0` .. `digital_3` | 从上到下、从左到右 |
 
@@ -15,26 +16,27 @@ MeterClassifier 节点：YOLOv8 ONNX → 固定槽位输出裁剪图。
 ## 管线
 
 ```
-CameraSource → MeterClassifier → light_0  → LEDAnalyzer_0 → color + freq + active
-                               → light_1  → LEDAnalyzer_1
+CameraSource → MeterClassifier → light_0   → LEDAnalyzer_0  → color + freq + active
+                               → light_1   → LEDAnalyzer_1
                                → ...
-                               → gauge_0  → GaugeReader_0
+                               → twist_0   → TwistReader_0
+                               → gauge_0   → GaugeReader_0
                                → digital_0 → DigitalReader_0
 ```
 
 ## 数据集
 
-已准备三份数据集，合并后可直接训练：
+已准备四份源数据集，合并后可直接训练：
 
 ```
 dataset/
-├── rgb_led_panel/        3564 张, 类别 "led"
-├── analog_gauge/         6396 张, 类别 "gauge"
-├── digital_display/       698 张, 类别 "digital"
-└── merged/              11598 train + 2246 valid, 3 类合并
-    ├── data.yaml          names: [led, gauge, digital]
-    ├── train/images/      11598 张
-    └── valid/images/      2246 张
+├── light_button/      train 192 + valid 40, 类别 "led" + "twist"
+├── analog_gauge/      train 6396 + valid 1829, 类别 "gauge"(仅采样 800 张参与合并)
+├── digital_display/   train 537 + valid 121, 类别 "digital"
+└── merged/            train 5120 + valid 617, 4 类合并
+    ├── data.yaml      names: [led, twist, gauge, digital]
+    ├── train/images/  5120 张 (led 3711, gauge 640, digital 577, twist 192)
+    └── valid/images/  617 张 (led 296, gauge 160, digital 121, twist 40)
 ```
 
 ### 新增自定义类别

@@ -26,11 +26,12 @@ class MeterClassifier : public fins::Node {
 public:
   void define() override {
     set_name("MeterClassifier");
-    set_description("仪表分类: YOLO ONNX → 固定槽位 light_0..7, gauge_0..3, digital_0..3");
+    set_description("仪表分类: YOLO ONNX → 固定槽位 light_0..3, twist_0..3, gauge_0..3, digital_0..3");
     set_category("Inspect");
     register_input<cv::Mat>("frame", &MeterClassifier::on_frame);
-    for (int i = 0; i < config::LIGHT_SLOTS;  ++i) register_output<cv::Mat>("light_"  + std::to_string(i));
-    for (int i = 0; i < config::GAUGE_SLOTS;  ++i) register_output<cv::Mat>("gauge_"  + std::to_string(i));
+    for (int i = 0; i < config::LIGHT_SLOTS;   ++i) register_output<cv::Mat>("light_"   + std::to_string(i));
+    for (int i = 0; i < config::TWIST_SLOTS;   ++i) register_output<cv::Mat>("twist_"   + std::to_string(i));
+    for (int i = 0; i < config::GAUGE_SLOTS;   ++i) register_output<cv::Mat>("gauge_"   + std::to_string(i));
     for (int i = 0; i < config::DIGITAL_SLOTS; ++i) register_output<cv::Mat>("digital_" + std::to_string(i));
     register_output<cv::Mat>("preview");
   }
@@ -74,9 +75,10 @@ public:
       cv::Mat preview = frame.clone();
       for (auto &d : dets) {
         cv::Scalar color;
-        if (d.class_name == "led")      color = cv::Scalar(0, 255, 0);
-        else if (d.class_name == "gauge") color = cv::Scalar(255, 0, 0);
-        else                             color = cv::Scalar(0, 0, 255);
+        if (d.class_name == "led")        color = cv::Scalar(0, 255, 0);    // 绿
+        else if (d.class_name == "twist")   color = cv::Scalar(0, 255, 255);  // 黄
+        else if (d.class_name == "gauge")   color = cv::Scalar(255, 0, 0);    // 蓝
+        else                                color = cv::Scalar(0, 0, 255);    // 红
         cv::rectangle(preview, d.bbox, color, 2);
       }
       send("preview", preview);
