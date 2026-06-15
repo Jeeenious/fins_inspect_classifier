@@ -32,6 +32,7 @@ public:
     for (int i = 0; i < config::LIGHT_SLOTS;  ++i) register_output<cv::Mat>("light_"  + std::to_string(i));
     for (int i = 0; i < config::GAUGE_SLOTS;  ++i) register_output<cv::Mat>("gauge_"  + std::to_string(i));
     for (int i = 0; i < config::DIGITAL_SLOTS; ++i) register_output<cv::Mat>("digital_" + std::to_string(i));
+    register_output<cv::Mat>("preview");
   }
   void initialize() override {
     logger->info("MeterClassifier 加载模型: {}", config::MODEL_PATH);
@@ -48,6 +49,8 @@ public:
     // 按类别分组, 每组从左到右从上到下排序
     std::map<std::string, std::vector<Detection>> groups;
     for (auto &d : dets) groups[d.class_name].push_back(d);
+
+    int total = 0;
     for (auto &[label, vec] : groups) {
       auto [prefix, slots] = config::SLOT_INFO(label);
       if (slots <= 0) continue;
@@ -63,12 +66,28 @@ public:
         logger->info("检出: {} #[{}] [{},{},{},{}] conf={:.2f}", label, i,
                      roi.x, roi.y, roi.width, roi.height, d.confidence);
         send(prefix + "_" + std::to_string(i), frame(roi).clone());
+        ++total;
       }
     }
+    // 预览图每秒发一次（减少负载）
+    if (++tick_ % 10 == 0) {
+      cv::Mat preview = frame.clone();
+      for (auto &d : dets) {
+        cv::Scalar color;
+        if (d.class_name == "led")      color = cv::Scalar(0, 255, 0);
+        else if (d.class_name == "gauge") color = cv::Scalar(255, 0, 0);
+        else                             color = cv::Scalar(0, 0, 255);
+        cv::rectangle(preview, d.bbox, color, 2);
+      }
+      send("preview", preview);
+    }
+    if (tick_ % 30 == 0)
+      logger->info("分类器: 帧内检出 {} 个目标", total);
   }
 
 private:
   cv::dnn::Net net_;
+  int tick_ = 0;
 
   std::vector<Detection> infer(const cv::Mat &frame) {
     // preprocess
@@ -77,27 +96,31 @@ private:
     net_.setInput(blob);
     auto outputs = net_.forward();
 
-    // YOLOv8 output: (1, 84, 8400) — 前4=xywh, 后80=class scores
-    int num_dets = outputs.size[2];
-    int num_classes = outputs.size[1] - 4;
-    float *data = (float *)outputs.data;
+    // YOLOv8 output: (1, 4+nc, 8400) — reshape+transpose 成 (8400, 4+nc)
+    // outputs.size[1]=4+nc, size[2]=8400, reshape(1,channels) → (7, 8400) → t()
+    cv::Mat out = outputs.reshape(1, outputs.size[1]).t();
+    int num_dets    = out.rows;  // 8400
+    int num_outputs = out.cols;
+    int num_classes = num_outputs - 4;
+
+    float x_scale = (float)frame.cols / config::INPUT_SIZE;
+    float y_scale = (float)frame.rows / config::INPUT_SIZE;
 
     std::vector<cv::Rect> boxes;
     std::vector<float> confs;
     std::vector<int> class_ids;
 
-    float x_scale = (float)frame.cols / config::INPUT_SIZE;
-    float y_scale = (float)frame.rows / config::INPUT_SIZE;
-
     for (int i = 0; i < num_dets; ++i) {
-      float *row = data + i * (4 + num_classes);
-      float cx = row[0] * x_scale, cy = row[1] * y_scale;
-      float w  = row[2] * x_scale, h  = row[3] * y_scale;
+      float *row = out.ptr<float>(i);
+      float cx = row[0] * x_scale;
+      float cy = row[1] * y_scale;
+      float w  = row[2] * x_scale;
+      float h  = row[3] * y_scale;
 
       float max_conf = 0;
       int best_cls = -1;
       for (int c = 0; c < num_classes; ++c) {
-        float score = row[4 + c];
+        float score = 1.0f / (1.0f + std::exp(-row[4 + c]));  // sigmoid
         if (score > max_conf) { max_conf = score; best_cls = c; }
       }
       if (max_conf < config::CONF_THRESHOLD) continue;

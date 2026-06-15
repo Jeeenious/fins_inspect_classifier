@@ -1,0 +1,13 @@
+names:
+- led
+- twist
+nc: 2
+roboflow:
+  license: CC BY 4.0
+  project: lightbutton
+  url: https://universe.roboflow.com/outsource-npppk/lightbutton/dataset/3
+  version: 3
+  workspace: outsource-npppk
+test: ../test/images
+train: ../train/images
+val: ../valid/images

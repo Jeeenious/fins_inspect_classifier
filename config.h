@@ -10,7 +10,7 @@ namespace config {
 // MODEL_DIR 由 CMake 编译时注入绝对路径
 inline const std::string MODEL_PATH = std::string(MODEL_DIR) + "/best.onnx";
 inline constexpr int    INPUT_SIZE = 320;
-inline constexpr float  CONF_THRESHOLD = 0.5f;
+inline constexpr float  CONF_THRESHOLD = 0.7f;
 inline constexpr float  NMS_THRESHOLD  = 0.4f;
 
 // YOLO 训练类别 (须与 ONNX 输出通道严格一致)
