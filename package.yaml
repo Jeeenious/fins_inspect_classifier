@@ -1,4 +1,4 @@
-name: "fins_inspect_classifier"
+name: "fins_classifier"
 version: "0.1.0"
 description: "YOLOv8 ONNX object detector for inspection: light, digital, gauge"
 maintainers:

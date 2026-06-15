@@ -1,9 +1,11 @@
 /*******************************************************************************
- * yolo_nodes.hpp — RegionClassifier (cv::Mat frame → light/digital/gauge)
+ * yolo_nodes.hpp — MeterClassifier (cv::Mat frame → 固定槽位输出)
  ******************************************************************************/
 
 #pragma once
 
+#include <algorithm>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -20,35 +22,48 @@ struct Detection {
   std::string class_name;
 };
 
-class RegionClassifier : public fins::Node {
+class MeterClassifier : public fins::Node {
 public:
   void define() override {
-    set_name("Classifier");
-    set_description("YOLO ONNX 目标分类, 按类别裁剪输出");
+    set_name("MeterClassifier");
+    set_description("仪表分类: YOLO ONNX → 固定槽位 light_0..7, gauge_0..3, digital_0..3");
     set_category("Inspect");
-    register_input<cv::Mat>("frame", &RegionClassifier::on_frame);
-    register_output<cv::Mat>("light");
-    register_output<cv::Mat>("digital");
-    register_output<cv::Mat>("gauge");
+    register_input<cv::Mat>("frame", &MeterClassifier::on_frame);
+    for (int i = 0; i < config::LIGHT_SLOTS;  ++i) register_output<cv::Mat>("light_"  + std::to_string(i));
+    for (int i = 0; i < config::GAUGE_SLOTS;  ++i) register_output<cv::Mat>("gauge_"  + std::to_string(i));
+    for (int i = 0; i < config::DIGITAL_SLOTS; ++i) register_output<cv::Mat>("digital_" + std::to_string(i));
   }
   void initialize() override {
-    logger->info("RegionClassifier 加载模型: {}", config::MODEL_PATH);
+    logger->info("MeterClassifier 加载模型: {}", config::MODEL_PATH);
     net_ = cv::dnn::readNetFromONNX(config::MODEL_PATH);
     if (net_.empty()) logger->warn("ONNX 模型加载失败");
-    else logger->info("RegionClassifier 模型加载成功");
+    else logger->info("MeterClassifier 模型加载成功");
   }
   void run() override {}
 
   void on_frame(const cv::Mat &frame, fins::AcqTime) {
     if (net_.empty() || frame.empty()) return;
 
-    for (auto &d : infer(frame)) {
-      std::string port = config::PORT_MAP(d.class_name);
-      if (port.empty()) continue;
-      cv::Rect roi(d.bbox);
-      roi &= cv::Rect(0, 0, frame.cols, frame.rows);
-      if (roi.area() <= 0) continue;
-      send(port, frame(roi).clone());
+    auto dets = infer(frame);
+    // 按类别分组, 每组从左到右从上到下排序
+    std::map<std::string, std::vector<Detection>> groups;
+    for (auto &d : dets) groups[d.class_name].push_back(d);
+    for (auto &[label, vec] : groups) {
+      auto [prefix, slots] = config::SLOT_INFO(label);
+      if (slots <= 0) continue;
+      std::sort(vec.begin(), vec.end(), [](const Detection &a, const Detection &b) {
+        int ay = a.bbox.y + a.bbox.height/2, by = b.bbox.y + b.bbox.height/2;
+        return ay != by ? ay < by : a.bbox.x < b.bbox.x;
+      });
+      for (size_t i = 0; i < vec.size() && (int)i < slots; ++i) {
+        auto &d = vec[i];
+        cv::Rect roi(d.bbox);
+        roi &= cv::Rect(0, 0, frame.cols, frame.rows);
+        if (roi.area() <= 0) continue;
+        logger->info("检出: {} #[{}] [{},{},{},{}] conf={:.2f}", label, i,
+                     roi.x, roi.y, roi.width, roi.height, d.confidence);
+        send(prefix + "_" + std::to_string(i), frame(roi).clone());
+      }
     }
   }
 
@@ -113,4 +128,4 @@ private:
     return result;
   }
 };
-EXPORT_NODE(RegionClassifier)
+EXPORT_NODE(MeterClassifier)

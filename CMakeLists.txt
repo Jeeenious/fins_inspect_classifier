@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(fins_inspect_classifier LANGUAGES CXX)
+project(fins_classifier LANGUAGES CXX)
 
 find_package(OpenCV REQUIRED)
 
