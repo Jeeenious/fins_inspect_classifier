@@ -1,0 +1,7 @@
+names:
+- led
+- gauge
+- digital
+nc: 3
+train: ../train/images
+val: ../valid/images

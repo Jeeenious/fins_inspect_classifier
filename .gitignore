@@ -10,9 +10,6 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-dataset/*
-runs/*
-
 node_modules
 dist
 dist-ssr

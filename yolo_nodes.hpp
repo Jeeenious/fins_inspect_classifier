@@ -23,7 +23,7 @@ struct Detection {
 class RegionClassifier : public fins::Node {
 public:
   void define() override {
-    set_name("RegionClassifier");
+    set_name("Classifier");
     set_description("YOLO ONNX 目标分类, 按类别裁剪输出");
     set_category("Inspect");
     register_input<cv::Mat>("frame", &RegionClassifier::on_frame);

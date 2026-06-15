@@ -1,0 +1,24 @@
+names:
+- '-'
+- .
+- '0'
+- '1'
+- '2'
+- '3'
+- '4'
+- '5'
+- '6'
+- '7'
+- '8'
+- '9'
+- screen
+nc: 13
+roboflow:
+  license: CC BY 4.0
+  project: 7-segment-digit-number-display
+  url: https://universe.roboflow.com/labmonitor/7-segment-digit-number-display/dataset/1
+  version: 1
+  workspace: labmonitor
+test: ../test/images
+train: ../train/images
+val: ../valid/images

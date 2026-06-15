@@ -1,0 +1,12 @@
+names:
+- led
+nc: 1
+roboflow:
+  license: CC BY 4.0
+  project: rgb-led-panel
+  url: https://universe.roboflow.com/inspiration-robotx-workspace/rgb-led-panel/dataset/14
+  version: 14
+  workspace: inspiration-robotx-workspace
+test: ../test/images
+train: ../train/images
+val: ../valid/images

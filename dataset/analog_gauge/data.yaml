@@ -1,0 +1,12 @@
+names:
+- gauge
+nc: 1
+roboflow:
+  license: CC BY 4.0
+  project: analog-gauge-320
+  url: https://universe.roboflow.com/dataset-qxuat/analog-gauge-320/dataset/1
+  version: 1
+  workspace: dataset-qxuat
+test: ../test/images
+train: ../train/images
+val: ../valid/images
