@@ -16,19 +16,13 @@ inline constexpr float  NMS_THRESHOLD  = 0.4f;
 // YOLO 训练类别 (须与 ONNX 输出通道严格一致)
 inline const std::string CLASS_NAMES[] = {"led", "twist", "gauge", "digital"};
 
-// 每个类别的固定输出槽位数 (检测结果从左到右、从上到下填入, 多余丢弃)
-inline constexpr int LIGHT_SLOTS   = 4;
-inline constexpr int TWIST_SLOTS   = 4;
-inline constexpr int GAUGE_SLOTS   = 4;
-inline constexpr int DIGITAL_SLOTS = 4;
-
-// label → 槽位前缀 + 数量
-inline std::pair<std::string, int> SLOT_INFO(const std::string &label) {
-  if (label == "led")     return {"light",   LIGHT_SLOTS};
-  if (label == "twist")   return {"twist",   TWIST_SLOTS};
-  if (label == "gauge")   return {"gauge",   GAUGE_SLOTS};
-  if (label == "digital") return {"digital", DIGITAL_SLOTS};
-  return {"", 0};
+// label → 输出端口名
+inline std::string VEC_PORT(const std::string &label) {
+  if (label == "led")     return "leds";
+  if (label == "twist")   return "twists";
+  if (label == "gauge")   return "gauges";
+  if (label == "digital") return "digitals";
+  return "";
 }
 
 }  // namespace config

@@ -4,24 +4,24 @@ MeterClassifier 节点：YOLOv8 ONNX → 固定槽位输出裁剪图。
 
 ## 输出端口
 
-| 类别 | 槽位数 | 端口名 | 排序 |
-|------|--------|--------|------|
-| 按钮灯 | 4 | `light_0` .. `light_3` | 从上到下、从左到右 |
-| 旋钮 | 4 | `twist_0` .. `twist_3` | 从上到下、从左到右 |
-| 指针表 | 4 | `gauge_0` .. `gauge_3` | 从上到下、从左到右 |
-| 数显 | 4 | `digital_0` .. `digital_3` | 从上到下、从左到右 |
+| 端口名 | 类型 | 内容 |
+|--------|------|------|
+| `leds` | `vector<cv::Mat>` | 按钮灯 ROI 数组，从上到下、从左到右排序 |
+| `twists` | `vector<cv::Mat>` | 旋钮 ROI 数组，从上到下、从左到右排序 |
+| `gauges` | `vector<cv::Mat>` | 指针表 ROI 数组，从上到下、从左到右排序 |
+| `digitals` | `vector<cv::Mat>` | 数显 ROI 数组，从上到下、从左到右排序 |
+| `preview` | `cv::Mat` | 标注预览图，每 10 帧发一次 |
 
-未检出的槽位悬空不发送。
+未检出目标时对应端口不发送。
 
 ## 管线
 
 ```
-CameraSource → MeterClassifier → light_0   → LEDAnalyzer_0  → color + freq + active
-                               → light_1   → LEDAnalyzer_1
-                               → ...
-                               → twist_0   → TwistReader_0
-                               → gauge_0   → GaugeReader_0
-                               → digital_0 → DigitalReader_0
+CameraSource → MeterClassifier → leds     → LEDAnalyzer  → color + freq + active
+                               → twists   → TwistReader
+                               → gauges   → GaugeReader
+                               → digitals → DigitalReader
+                               → preview  → (可视化)
 ```
 
 ## 数据集

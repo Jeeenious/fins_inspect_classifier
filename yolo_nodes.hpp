@@ -1,5 +1,5 @@
 /*******************************************************************************
- * yolo_nodes.hpp — MeterClassifier (cv::Mat frame → 固定槽位输出)
+ * yolo_nodes.hpp — MeterClassifier (cv::Mat frame → 4 类 Vector<Mat> + preview)
  ******************************************************************************/
 
 #pragma once
@@ -26,13 +26,13 @@ class MeterClassifier : public fins::Node {
 public:
   void define() override {
     set_name("MeterClassifier");
-    set_description("仪表分类: YOLO ONNX → 固定槽位 light_0..3, twist_0..3, gauge_0..3, digital_0..3");
+    set_description("仪表分类: YOLO ONNX → leds/twists/gauges/digitals + preview");
     set_category("Inspect");
     register_input<cv::Mat>("frame", &MeterClassifier::on_frame);
-    for (int i = 0; i < config::LIGHT_SLOTS;   ++i) register_output<cv::Mat>("light_"   + std::to_string(i));
-    for (int i = 0; i < config::TWIST_SLOTS;   ++i) register_output<cv::Mat>("twist_"   + std::to_string(i));
-    for (int i = 0; i < config::GAUGE_SLOTS;   ++i) register_output<cv::Mat>("gauge_"   + std::to_string(i));
-    for (int i = 0; i < config::DIGITAL_SLOTS; ++i) register_output<cv::Mat>("digital_" + std::to_string(i));
+    register_output<std::vector<cv::Mat>>("leds");
+    register_output<std::vector<cv::Mat>>("twists");
+    register_output<std::vector<cv::Mat>>("gauges");
+    register_output<std::vector<cv::Mat>>("digitals");
     register_output<cv::Mat>("preview");
   }
   void initialize() override {
@@ -47,38 +47,40 @@ public:
     if (net_.empty() || frame.empty()) return;
 
     auto dets = infer(frame);
-    // 按类别分组, 每组从左到右从上到下排序
+
+    // 按类别分组, 每组从上到下、从左到右排序
     std::map<std::string, std::vector<Detection>> groups;
     for (auto &d : dets) groups[d.class_name].push_back(d);
 
     int total = 0;
     for (auto &[label, vec] : groups) {
-      auto [prefix, slots] = config::SLOT_INFO(label);
-      if (slots <= 0) continue;
+      auto port = config::VEC_PORT(label);
+      if (port.empty()) continue;
       std::sort(vec.begin(), vec.end(), [](const Detection &a, const Detection &b) {
         int ay = a.bbox.y + a.bbox.height/2, by = b.bbox.y + b.bbox.height/2;
         return ay != by ? ay < by : a.bbox.x < b.bbox.x;
       });
-      for (size_t i = 0; i < vec.size() && (int)i < slots; ++i) {
-        auto &d = vec[i];
+      std::vector<cv::Mat> rois;
+      for (auto &d : vec) {
         cv::Rect roi(d.bbox);
         roi &= cv::Rect(0, 0, frame.cols, frame.rows);
         if (roi.area() <= 0) continue;
-        logger->info("检出: {} #[{}] [{},{},{},{}] conf={:.2f}", label, i,
-                     roi.x, roi.y, roi.width, roi.height, d.confidence);
-        send(prefix + "_" + std::to_string(i), frame(roi).clone());
+        rois.push_back(frame(roi).clone());
         ++total;
       }
+      logger->info("检出: {} x{}", label, rois.size());
+      send(port, rois);
     }
-    // 预览图每秒发一次（减少负载）
+
+    // 预览图每秒发一次
     if (++tick_ % 10 == 0) {
       cv::Mat preview = frame.clone();
       for (auto &d : dets) {
         cv::Scalar color;
-        if (d.class_name == "led")        color = cv::Scalar(0, 255, 0);    // 绿
-        else if (d.class_name == "twist")   color = cv::Scalar(0, 255, 255);  // 黄
-        else if (d.class_name == "gauge")   color = cv::Scalar(255, 0, 0);    // 蓝
-        else                                color = cv::Scalar(0, 0, 255);    // 红
+        if (d.class_name == "led")        color = cv::Scalar(0, 255, 0);
+        else if (d.class_name == "twist")   color = cv::Scalar(0, 255, 255);
+        else if (d.class_name == "gauge")   color = cv::Scalar(255, 0, 0);
+        else                                color = cv::Scalar(0, 0, 255);
         cv::rectangle(preview, d.bbox, color, 2);
       }
       send("preview", preview);
